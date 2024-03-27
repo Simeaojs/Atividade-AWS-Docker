@@ -8,37 +8,19 @@ Nesta atividade, o objetivo é realizar a instalação e configuração do Docke
 
 # Pontos de Atenção
 
-1. **Não utilizar IP público para saída dos serviços WP:**
-   
-   Evitar publicar o serviço WordPress diretamente via IP público para garantir a segurança e a organização da infraestrutura. Sugere-se utilizar o Load Balancer Classic para o tráfego de 
-   internet.
+1. **Não utilizar IP público para saída dos serviços WP**
 
-3. **Sugestão para o tráfego de internet sair pelo Load Balancer Classic:**
-   
-   Utilizar o Load Balancer Classic da AWS como ponto de saída para o tráfego de internet, garantindo uma distribuição equitativa das requisições e melhorando a escalabilidade e disponibilidade 
-   da aplicação.
+2. **Sugestão para o tráfego de internet sair pelo Load Balancer Classic**
 
-4. **Sugestão de utilizar o EFS (Elastic File System) para pastas públicas e estáticos do WordPress:**
-   
-   O uso do EFS da AWS é recomendado para armazenar pastas públicas e arquivos estáticos do WordPress, proporcionando escalabilidade, disponibilidade e facilidade de compartilhamento entre 
-   múltiplos containers.
+3. **Sugestão de utilizar o EFS (Elastic File System) para pastas públicas e estáticos do WordPress**
 
-5. **Utilização de Dockerfile ou Docker Compose:**
-   
-   Fica a critério de cada integrante escolher entre usar um Dockerfile ou um Docker Compose para a configuração e execução dos containers do WordPress. Ambas as opções são válidas e 
-   devem ser demonstradas na entrega do trabalho.
+4. **Utilização de Dockerfile ou Docker Compose**
 
-6. **Demonstrar a aplicação WordPress funcionando (tela de login):**
-   
-   É necessário demonstrar que a aplicação WordPress está funcionando corretamente, incluindo a tela de login acessível e funcional.
+5. **Demonstrar a aplicação WordPress funcionando (tela de login)**
 
-7. **Aplicação WordPress precisa estar rodando na porta 80 ou 8080:**
-    
-   A aplicação WordPress deve ser configurada para rodar em uma das portas padrão, como a porta 80 ou a porta 8080, para facilitar o acesso e a integração com o Load Balancer e outros serviços.
+6. **Aplicação WordPress precisa estar rodando na porta 80 ou 8080**
 
-8. **Utilizar repositório Git para versionamento:**
-    
-   Todos os arquivos de configuração, scripts e códigos relacionados ao projeto devem ser versionados em um repositório Git para facilitar o controle de versão, colaboração e revisão do código.
+7. **Utilizar repositório Git para versionamento**
 
    - - -
 
@@ -158,7 +140,7 @@ resource "aws_subnet" "private2" {
 ```
 - Este código Terraform define uma VPC na AWS com o CIDR `10.100.0.0/16` e cria sub-redes públicas e privadas em diferentes zonas de disponibilidade (us-east-1a e us-east-1b) dentro dessa VPC. As sub-redes são configuradas com os CIDRs especificados e têm tags para identificação.
 
-### Para criar tabelas IGW (Internet GateWay), EIP (Elastic IP), NAT Gateway (Network Address Translation gateway) e Route para públicas e privadas:
+### Configurando o Internet Gateway, Elastic IP, NAT Gateway e rotas para redes públicas e privadas:
 
 ```hcl
 # Internet Gateway

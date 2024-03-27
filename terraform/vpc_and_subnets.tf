@@ -1,4 +1,4 @@
-# VPC PRINCIPAL
+# Main VPC
 resource "aws_vpc" "vpc" {
   cidr_block           = "10.110.0.0/16"
   enable_dns_hostnames = true
@@ -8,7 +8,7 @@ resource "aws_vpc" "vpc" {
   }
 }
 
-# SUB REDE PUBLICA
+# Public Subnet
 resource "aws_subnet" "subnet-public-a" {
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = "10.110.10.0/24"
@@ -29,7 +29,7 @@ resource "aws_subnet" "subnet-public-b" {
   }
 }
 
-# SUB REDE PRIVADA
+# Private Subnet
 resource "aws_subnet" "subnet-private-a" {
   vpc_id            = aws_vpc.vpc.id
   cidr_block        = "10.110.1.0/24"

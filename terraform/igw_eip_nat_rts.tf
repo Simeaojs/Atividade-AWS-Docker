@@ -35,14 +35,14 @@ resource "aws_route_table_association" "association-rt-public_b" {
   route_table_id = aws_route_table.rt-public_b.id
 }
 
-# ROTAS
+# public routing for subnet A outbound to the internet
 resource "aws_route" "rota_default_public_a" {
   route_table_id         = aws_route_table.rt-public_a.id
   destination_cidr_block = "0.0.0.0/0"
 
   gateway_id = aws_internet_gateway.igw.id
 }
-
+# public routing for subnet B outbound to the internet 
 resource "aws_route" "rota_default_public_b" {
   route_table_id         = aws_route_table.rt-public_b.id
   destination_cidr_block = "0.0.0.0/0"
@@ -95,7 +95,7 @@ resource "aws_route_table_association" "association-rt-private_b" {
   route_table_id = aws_route_table.rt-private_b.id
 }
 
-# ROTEAMENTO PRIVADO SAIDA PARA A INTERNET DA SUBREDE A.
+# Private routing for subnet A outbound to the internet
 resource "aws_route" "rota_internet_private_a" {
   route_table_id         = aws_route_table.rt-private_a.id
   destination_cidr_block = "0.0.0.0/0"
@@ -103,7 +103,7 @@ resource "aws_route" "rota_internet_private_a" {
   nat_gateway_id = aws_nat_gateway.nat_gateway[0].id
 }
 
-# ROTEAMENTO PRIVADO SAIDA PARA A INTERNET DA SUBREDE B.
+# Private routing for subnet B outbound to the internet.
 resource "aws_route" "rota_internet_private_b" {
   route_table_id         = aws_route_table.rt-private_b.id
   destination_cidr_block = "0.0.0.0/0"
