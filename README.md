@@ -28,7 +28,7 @@ Nesta atividade, o objetivo é realizar a instalação e configuração do Docke
 
    Nessa atividade, toda a configuração da arquitetura será feita utilizando o Terraform, uma ferramenta de infraestrutura como código (IaC) amplamente reconhecida e utilizada pela sua capacidade de gerenciar de forma eficiente e escalável a infraestrutura em diversos provedores de nuvem, como AWS, Azure e Google Cloud Platform. A escolha pelo Terraform se deve à sua facilidade de uso, declaração de recursos em formato de código, controle de versionamento e automação de provisionamento, o que proporciona maior agilidade, consistência e controle no gerenciamento da infraestrutura como um todo.
 
-   ## Tarefa 1: Terraform 
+   ## Parte 1: Terraform 
 
     Primeiro instale o Terraform [a partir daqui](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
@@ -231,10 +231,234 @@ resource "aws_route_table_association" "private2" {
 - - - 
 - Este código Terraform realiza a associação das sub-redes às tabelas de rota pública e privada na infraestrutura da AWS. Essa associação é crucial para o correto direcionamento do tráfego dentro da VPC. As sub-redes públicas são direcionadas para a tabela de rota pública, enquanto as sub-redes privadas são associadas à tabela de rota privada. Isso permite que o tráfego seja roteado adequadamente entre as sub-redes e garante o funcionamento correto das instâncias e serviços na VPC, mantendo a segregação entre as redes públicas e privadas conforme necessário para a segurança e o desempenho da infraestrutura.
 
+### Criando Banco de dados AWS RDS: 
+
+```hcl
+#rds subnet
+
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name       = "rds-subnet-group"
+  subnet_ids = [SUAS-SUBNETS PRIVADAS]
+
+}
+#RDS INSTANCE
+
+resource "aws_db_instance" "rds_instance" {
+  engine                    = "mysql"
+  engine_version            = "8.0.35"
+  skip_final_snapshot       = true
+  final_snapshot_identifier = "my-final-snapshot"
+  allocated_storage         = 20
+  instance_class            = "db.t3.micro"
+  identifier                = "my-rds-instance"
+  db_name                   = "wordpress"
+  username                  = "USUARIO"
+  password                  = "SENHA"
+  db_subnet_group_name      = aws_db_subnet_group.rds_subnet_group.name
+  vpc_security_group_ids    = [aws_security_group.rds_sg.id]
+
+  tags = {
+    Name = "rds-project-docker"
+  }
+
+}
+# RDS security group
+
+resource "aws_security_group" "rds_sg" {
+  name        = "rds-sg-project-docker"
+  description = "Security group for RDS"
+  vpc_id      = aws_vpc.vpc.id
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.110.0.0/16"]
+  }
+
+  tags = {
+    Name = "rds-sg-project-docker"
+  }
+}
+```
+Este código configura uma instância RDS MySQL juntamente com um grupo de sub-redes do DB e um grupo de segurança para o RDS. Ele cria os recursos necessários para a instância RDS, incluindo a definição do motor, versão, armazenamento alocado, classe de instância, nome do banco de dados e configurações de segurança.
+
+O Grupo de Sub-redes do DB `(aws_db_subnet_group)` associa a instância RDS às sub-redes privadas A e B. A instância RDS `(aws_db_instance)` especifica o motor MySQL, versão, armazenamento alocado, classe de instância, nome do banco de dados e outras configurações. Ela também faz referência ao grupo de sub-redes do DB e IDs do grupo de segurança.
+
+O Grupo de Segurança do RDS `(aws_security_group)` define regras de ingresso para permitir o tráfego na porta 3306 (MySQL) apenas a partir do intervalo de blocos CIDR especificado.
+
+_ _ _ 
+
+### Configurando os Grupos de Segurança:
+Nesta seção, vamos configurar dois grupos de segurança, um para o balanceador de carga (load balancer) e outro para o bastion host. Esses grupos de segurança serão utilizados posteriormente.
+
+```hcl
+# Grupo de Segurança para o Balanceador de Carga (ALB)
+
+resource "aws_security_group" "sg_alb" {
+  name        = "sg_alb"
+  description = "Grupo de segurança para o balanceador de carga (ALB)"
+  vpc_id      = aws_vpc.vpc.id
+
+  # Regras de Entrada (Ingress)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Permite acesso HTTP de qualquer lugar"
+  }
+
+  # Regras de Saída (Egress)
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "sg_alb"
+  }
+}
+```
+Este grupo de segurança `(sg_alb)` é utilizado para configurar as regras de acesso ao balanceador de carga (ALB - Application Load Balancer) na AWS. Ele permite o tráfego de entrada na porta 80 (HTTP) de qualquer lugar `(0.0.0.0/0)`, o que significa que qualquer endereço IP pode acessar o ALB através do protocolo TCP na porta 80 para acessar aplicativos web hospedados no ALB. Além disso, ele permite o tráfego de saída para qualquer destino e porta, pois a regra de egresso permite todo o tráfego `(0.0.0.0/0)` com qualquer protocolo `(-1)`. 
+
+```hcl
+# bastion_sg
+
+resource "aws_security_group" "bastion_sg" {
+  name        = "bastion_sg"
+  description = "Security group for bastion host"
+  vpc_id      = aws_vpc.vpc.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow SSH access from anywhere"
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "bastion_sg"
+  }
+
+}
+# private_ssh_sg:
+
+resource "aws_security_group" "private_ssh_sg" {
+  name        = "private_ssh_sg"
+  description = "Security group for bastion host"
+  vpc_id      = aws_vpc.vpc.id
+
+  ingress {
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion_sg.id]
+    description     = "Allow SSH access from bastion host"
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP"
+  }
+
+  ingress {
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "NFS"
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS"
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "private_ssh_sg"
+  }
+
+}
+```
+- Regras de entrada (Ingress):
+   - Permite acesso SSH (porta 22) de qualquer lugar (`0.0.0.0/0`), o que significa que qualquer endereço IP pode acessar o bastion host via SSH.
+- Regra de saída (Egress):
+   - Permite todo o tráfego de saída para qualquer destino e porta.
+- private_ssh_sg:
+- Regras de entrada (Ingress):
+   - Permite acesso SSH (porta 22) apenas a partir do grupo de segurança `bastion_sg`, restringindo o acesso SSH ao bastion host.
+   - Permite acesso HTTP (porta 80) de qualquer lugar (`0.0.0.0/0`).
+   - Permite acesso NFS (porta 2049) de qualquer lugar (`0.0.0.0/0`).
+   - Permite acesso HTTPS (porta 443) de qualquer lugar (`0.0.0.0/0`).
+- Regra de saída (Egress):
+   - Permite todo o tráfego de saída para qualquer destino e porta.
+     
+Esses grupos de segurança são utilizados para controlar o acesso ao bastion host e aos serviços que ele pode acessar dentro da VPC (Virtual Private Cloud). O `bastion_sg` permite acesso SSH de qualquer lugar, enquanto o `private_ssh_sg` restringe o acesso SSH ao bastion host apenas a partir do próprio grupo de segurança, adicionando também permissões para outros serviços como HTTP, NFS e HTTPS de qualquer lugar.
+
+_ _ _ 
+
+### Conclusão da Primeira parte 
+
+Nesta etapa, concluímos a configuração inicial dos recursos necessários para nossa infraestrutura. Agora estamos prontos para realizar o provisionamento dos recursos no ambiente AWS.
+
+A seguir, serão executados os seguintes passos para garantir a consistência e a correta configuração do código:
+
+1. Validação do Código Terraform:
+   - Antes de aplicar as alterações, é recomendável executar o comando `terraform validate` para validar a sintaxe e a estrutura do código Terraform. Isso ajuda a identificar erros ou problemas antes da aplicação das alterações.
+  
+2. Inicialização do Repositório Terraform:
+   - Utilize o comando `terraform init` para inicializar o repositório do Terraform. Isso garantirá que todos os plugins e módulos necessários sejam baixados e configurados corretamente.
+
+3. Formatação do Código:
+   - Em seguida, execute o comando `terraform fmt` para formatar o código de acordo com as diretrizes de estilo e organização do Terraform. Isso garante a legibilidade e a consistência do código.
+  
+4. Planejamento da Infraestrutura:
+   - Execute o comando `terraform plan` para criar um plano de execução detalhado das alterações propostas na infraestrutura. Isso permitirá revisar as alterações antes da aplicação, garantindo que tudo esteja configurado conforme o esperado.
+  
+5. Aplicação das Alterações:
+   - Por fim, utilize o comando `terraform apply` para aplicar as alterações planejadas na infraestrutura. Este passo deve ser realizado com cuidado, pois resultará na criação, atualização ou remoção de recursos na AWS de acordo com o plano gerado.
+
+Com esses passos, estaremos prontos para avançar para a próxima etapa do projeto e realizar o provisionamento dos recursos na AWS de forma segura e controlada.
+___ 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+     
 
 
 
