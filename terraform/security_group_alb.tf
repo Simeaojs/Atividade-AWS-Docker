@@ -25,7 +25,7 @@ resource "aws_security_group" "sg_alb" {
 
 # Create security group for web
 
-resource "aws_security_group" "security_group" {
+/*resource "aws_security_group" "security_group" {
   name        = "Sg-project-docker"
   description = "SG-project-docker"
 
@@ -75,3 +75,5 @@ resource "aws_security_group" "security_group" {
     Name = "sg-project-docker"
   }
 }
+
+*/  
