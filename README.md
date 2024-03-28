@@ -84,7 +84,7 @@ variable "keyname" {
 - Este código Terraform define variáveis para configurar informações sensíveis em um ambiente AWS. A variável "region" especifica a região AWS na qual os recursos serão implantados, com um valor padrão definido como "us-east-1". A variável "ami_id" armazena o ID da AMI a ser utilizada, com um valor padrão configurado para "ami-07761f3ae34c4478d". A variável "keyname" define o nome da chave de acesso para instâncias EC2, com um valor padrão de "teste".
 
 - 💡 NOTA: Não se esqueça de alterar o valor no bloco conforme seu uso! 
-
+_ _ _ 
 ### Para criar VPC e sub-redes públicas e privadas:
 
 ```hcl
@@ -139,7 +139,7 @@ resource "aws_subnet" "private2" {
 }
 ```
 - Este código Terraform define uma VPC na AWS com o CIDR `10.100.0.0/16` e cria sub-redes públicas e privadas em diferentes zonas de disponibilidade (us-east-1a e us-east-1b) dentro dessa VPC. As sub-redes são configuradas com os CIDRs especificados e têm tags para identificação.
-
+_ _ _ 
 ### Configurando o Internet Gateway, Elastic IP, NAT Gateway e rotas para redes públicas e privadas:
 
 ```hcl
@@ -199,7 +199,7 @@ resource "aws_route_table" "private" {
 - Aloca um Elastic IP.
 - Estabelece um NAT Gateway para sub-redes públicas.
 - Define tabelas de rota pública e privada para roteamento de tráfego.
-
+_ _ _ 
 
 ### Para criar a associação da tabela de rotas e o grupo de segurança:
 
@@ -228,9 +228,8 @@ resource "aws_route_table_association" "private2" {
   route_table_id = aws_route_table.private.id
 }
 ```
-- - - 
 - Este código Terraform realiza a associação das sub-redes às tabelas de rota pública e privada na infraestrutura da AWS. Essa associação é crucial para o correto direcionamento do tráfego dentro da VPC. As sub-redes públicas são direcionadas para a tabela de rota pública, enquanto as sub-redes privadas são associadas à tabela de rota privada. Isso permite que o tráfego seja roteado adequadamente entre as sub-redes e garante o funcionamento correto das instâncias e serviços na VPC, mantendo a segregação entre as redes públicas e privadas conforme necessário para a segurança e o desempenho da infraestrutura.
-
+_ _ _ 
 ### Criando Banco de dados AWS RDS: 
 
 ```hcl
@@ -442,6 +441,94 @@ A seguir, serão executados os seguintes passos para garantir a consistência e 
 
 Com esses passos, estaremos prontos para avançar para a próxima etapa do projeto e realizar o provisionamento dos recursos na AWS de forma segura e controlada.
 ___ 
+
+ ## Parte 2: Configurando o EFS, EC2 Bastion Host, Launch Template, Load Balancer, Auto Scaling
+
+###  Configurando o EFS:
+
+1. Acesse o console da AWS e pesquise por "EFS" no campo de busca.
+2. No canto superior direito da página, clique em "Criar sistema de arquivos".
+3. Insira um nome para o sistema de arquivos EFS e selecione a VPC correspondente ao seu projeto.
+4. Clique em "Criar".
+
+ℹ️ Observação: Após a criação, vá para a seção de "Rede" e selecione o grupo de segurança adequado para a sua aplicação, garantindo que o acesso ao EFS seja configurado corretamente conforme as necessidades de segurança do seu projeto.
+___ 
+
+### EC2 Bastion Host:
+
+```hcl
+resource "aws_instance" "bastion" {
+
+  ami                         = var.ami_id
+  instance_type               = "t3.micro"
+  security_groups             = [aws_security_group.bastion_sg.id]
+  subnet_id                   = aws_subnet.subnet-public-a.id
+  key_name                    = var.keyname
+  associate_public_ip_address = true
+  tags = {
+    Name       = "bastion-host"
+    
+  }
+
+  volume_tags = {
+    Name       = "bastion-host"
+  }
+}
+```
+- Este código cria uma instância EC2 do tipo `t3.micro` usando a AMI especificada por `var.ami_id`. A instância será lançada na sub-rede pública especificada por `aws_subnet.subnet-public-a.id`, e seu acesso será controlado pelo grupo de segurança `aws_security_group.bastion_sg.id`. A instância será associada a um endereço IP público, permitindo acesso externo.
+- As tags são utilizadas para identificar e categorizar a instância e o volume associado a ela com informações como nome, ou o que você precisar para seu projeto.
+- Certifique-se de substituir `var.ami_id` e `var.keyname` com os valores corretos de acordo com o seu ambiente.
+
+___ 
+
+### Load Balancer:
+
+```hcl
+# Create ALB
+
+resource "aws_lb" "alb-tf" {
+  name                             = "alb-project-docker"
+  internal                         = false
+  load_balancer_type               = "application"
+  security_groups                  = [aws_security_group.sg_alb.id]
+  enable_cross_zone_load_balancing = true
+  subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]
+
+
+  tags = {
+    name = "alb-project-docker"
+
+  }
+}
+
+# Create ALB Listener 
+
+resource "aws_lb_listener" "alb-listener" {
+  load_balancer_arn = aws_lb.alb-tf.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group.arn
+  }
+
+}
+```
+- Este código cria um Application Load Balancer (ALB) com o nome "alb-project-docker", configurado para ser externo (`internal = false`), utilizar o tipo "application", habilitar o balanceamento de carga entre zonas (`enable_cross_zone_load_balancing = true`) e associar-se a um grupo de segurança específico (`security_groups`).
+- Além disso, o código define um listener para encaminhar o tráfego HTTP na porta 80 para um Target Group específico (`aws_lb_target_group.target_group.arn`).
+
+_ _ _ 
+
+
+
+
+
+
+
+
+
+
 
 
 
