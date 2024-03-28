@@ -31,7 +31,12 @@ Nesta atividade, o objetivo é realizar a instalação e configuração do Docke
    ## Parte 1: Terraform 
 
     Primeiro instale o Terraform [a partir daqui](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
-
+   
+    Para facilitar, é altamente recomendável utilizar o VS Code. [Você pode baixá-lo](https://code.visualstudio.com/download)
+   
+    Além disso, para referências detalhadas, consulte a documentação oficial do Terraform  [clicando aqui](https://registry.terraform.io/providers/hashicorp/aws/latest/docs). Esta documentação é uma fonte valiosa de informações sobre os recursos, atributos e possibilidades 
+    disponíveis ao utilizar o Terraform em conjunto com os serviços da AWS.
+   
     Depois de instalar o Terraform, você pode configurá-lo para usar sua conta da AWS definindo as variáveis e ambientais em seu terminal. A CLI do Terraform detectará a presença dessas variáveis e as usará para autenticar com sua conta 
     da `AWS.AWS_ACCESS_KEY_ID` `AWS_SECRET_ACCESS_KEY`
 
@@ -466,13 +471,13 @@ resource "aws_instance" "bastion" {
   key_name                    = var.keyname             # Nome da chave SSH para acesso à instância
   associate_public_ip_address = true                    # Associar endereço IP público à instância
   tags = {
-    Name       = "bastion"                            # Nome da instância
+    Name       = "bastion"                              # Nome da instância
     
   }
 
   volume_tags = {
-    Name       = "bastion"                            # Nome do volume associado à instância
-    
+    Name       = "bastion"                              # Nome do volume associado à instância
+     
   }
 }
 
@@ -496,7 +501,7 @@ resource "aws_lb" "alb-tf" {
   subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]  # Sub-redes públicas para o ALB
 
   tags = {
-    name = "alb-project-docker"                                              # Tags para identificar o ALB
+    name = "alb-project-docker"                                               # Tags para identificar o ALB
   }
 }
 
@@ -504,9 +509,9 @@ resource "aws_lb" "alb-tf" {
 # Resource para criar um listener para o ALB
 
 resource "aws_lb_listener" "alb-listener" {
-  load_balancer_arn = aws_lb.alb-tf.arn           # ARN do ALB
-  port              = "80"                        # Porta do listener
-  protocol          = "HTTP"                      # Protocolo HTTP
+  load_balancer_arn = aws_lb.alb-tf.arn            # ARN do ALB
+  port              = "80"                         # Porta do listener
+  protocol          = "HTTP"                       # Protocolo HTTP
 
   default_action {
     type             = "forward"                   # Ação padrão: encaminhamento
@@ -534,14 +539,14 @@ resource "aws_launch_configuration" "wp-launch-config" {
 
   # Configuração do dispositivo de bloco raiz (root block device)
   root_block_device {
-    volume_size = 20                                                               # Tamanho do volume raiz em GB
-    volume_type = "gp2"                                                            # Tipo do volume raiz (General Purpose SSD)
-    encrypted   = true                                                             # Criptografado
+    volume_size = 20                                                                # Tamanho do volume raiz em GB
+    volume_type = "gp2"                                                             # Tipo do volume raiz (General Purpose SSD)
+    encrypted   = true                                                              # Criptografado
   }
 
   # Configuração das tags para a instância
   tags = {
-    Name       = "wp-instance"                                                     # Nome da instância
+    Name       = "wp-instance"                                                      # Nome da instância
   }
 }
 ```
@@ -584,13 +589,96 @@ docker-compose up -d                      # Inicia os contêineres do WordPress 
 
 _ _ _ 
 
+### Auto Scaling: 
 
+```hcl
+# Configuração do Grupo de Auto Scaling
+resource "aws_autoscaling_group" "asg" {
+  name                      = "project-docker"                                 # Nome do Grupo de Auto Scaling
+  desired_capacity          = 2                                                # Capacidade desejada de instâncias
+  max_size                  = 4                                                # Número máximo de instâncias
+  min_size                  = 2                                                # Número mínimo de instâncias
+  force_delete              = true                                             # Exclui instâncias sem notificações
+  depends_on                = [aws_lb.alb-tf]                                  # Dependência do Load Balancer
+  target_group_arns         = [aws_lb_target_group.target_group.arn]           # ARN do Target Group
+  health_check_grace_period = 300                                              # Período de espera após início da instância
+  health_check_type         = "EC2"                                            # Tipo de verificação de saúde
+  launch_configuration      = aws_launch_configuration.wp-launch-config.name   # Configuração de lançamento
+  vpc_zone_identifier       = [aws_subnet.subnet-private-a.id, aws_subnet.subnet-private-b.id]  # Identificador da zona da VPC
 
+  tag {
+    key                 = "Name"                                               # Chave da tag
+    value               = "project-docker"                                     # Valor da tag
+    propagate_at_launch = true                                                 # Propagação da tag ao lançar
+  }
+}
 
+# Criação do Target Group
+resource "aws_lb_target_group" "target_group" {
+  name        = "target-group-project-docker"                                   # Nome do Target Group
+  depends_on  = [aws_vpc.vpc]                                                   # Dependência da VPC
+  port        = 80                                                              # Porta do Target Group
+  protocol    = "HTTP"                                                          # Protocolo do Target Group
+  vpc_id      = aws_vpc.vpc.id                                                  # ID da VPC
+  target_type = "instance"                                                      # Tipo de destino (instancias EC2)
 
+  health_check {
+    interval            = 70                                                    # Intervalo da verificação de saúde
+    path                = "/"                                                   # Caminho da verificação de saúde
+    port                = 80                                                    # Porta da verificação de saúde
+    healthy_threshold   = 2                                                     # Limiar de saúde positiva
+    unhealthy_threshold = 2                                                     # Limiar de saúde negativa
+    timeout             = 60                                                    # Tempo limite da verificação de saúde
+    protocol            = "HTTP"                                                # Protocolo da verificação de saúde
+    matcher             = "200,202"                                             # Matcher para status HTTP
+  }
+}
 
+# Política de Dimensionamento de Rastreamento de Alvo
+resource "aws_autoscaling_policy" "asg_cpu_policy" {
+  name                   = "asg_cpu_policy"                                     # Nome da política de dimensionamento
+  autoscaling_group_name = aws_autoscaling_group.asg.name                       # Nome do Grupo de Auto Scaling
+  adjustment_type        = "ChangeInCapacity"                                   # Tipo de ajuste (mudança na capacidade)
+  policy_type            = "TargetTrackingScaling"                              # Tipo de política de dimensionamento
 
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"                        # Tipo de métrica pré-definida (Utilização de CPU média do ASG)
+    }
+    target_value = 70.0                                                          # Valor alvo (70% de utilização de CPU)
+  }
+}
+```
+- Este código configura um Grupo de Auto Scaling (ASG) para gerenciar instâncias EC2, um Target Group para o Application Load Balancer (ALB) e uma política de dimensionamento automático com base na utilização média da CPU. Ele garante que as instâncias EC2 sejam gerenciadas de forma automática, escalando de acordo com a demanda e mantendo a saúde do sistema.
 
+_ _ _ 
+
+### Outputs:
+
+```hcl
+# Definição da saída para o DNS do ALB
+output "elb_dns" {
+  value = aws_lb.alb-tf.dns_name  # Valor da saída é o DNS name do ALB
+}
+```
+- Este código cria uma saída chamada "elb_dns" que contém o DNS name do Application Load Balancer (ALB). Essa saída pode ser utilizada para obter o endereço do ALB após a execução do Terraform, por exemplo, para acessar a aplicação hospedada no ALB.
+
+_ _ _ 
+
+### Conclusão da Segunda parte
+
+Após a conclusão de toda a configuração da segunda parte, estamos prontos para provisionar o restante da infraestrutura.
+
+- Repita os passos realizados na [primeira parte](https://github.com/Simeaojs/Atividade-AWS-Docker#conclus%C3%A3o-da-primeira-parte)
+ para inicializar o repositório Terraform, formatar o código, planejar e aplicar as configurações.
+
+Isso garantirá que a infraestrutura esteja totalmente configurada e pronta para ser utilizada conforme planejado.
+
+_ _ _ 
+
+## 🌱Contribuição
+
+Contribuições são bem-vindas! Se você identificar problemas ou melhorias, sinta-se à vontade para abrir um pull request.
 
 
 
