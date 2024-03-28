@@ -457,23 +457,25 @@ ___
 ### EC2 Bastion Host:
 
 ```hcl
+# Resource para criar uma instância EC2 (bastion host)
 resource "aws_instance" "bastion" {
-
-  ami                         = var.ami_id
-  instance_type               = "t3.micro"
-  security_groups             = [aws_security_group.bastion_sg.id]
-  subnet_id                   = aws_subnet.subnet-public-a.id
-  key_name                    = var.keyname
-  associate_public_ip_address = true
+  ami                         = var.ami_id              # ID da AMI (Amazon Machine Image) para a instância
+  instance_type               = "t3.micro"              # Tipo de instância EC2
+  security_groups             = [aws_security_group.bastion_sg.id]  # Grupo de segurança para a instância
+  subnet_id                   = aws_subnet.subnet-public-a.id     # ID da sub-rede pública onde a instância será lançada
+  key_name                    = var.keyname             # Nome da chave SSH para acesso à instância
+  associate_public_ip_address = true                    # Associar endereço IP público à instância
   tags = {
-    Name       = "bastion-host"
+    Name       = "bastion"                            # Nome da instância
     
   }
 
   volume_tags = {
-    Name       = "bastion-host"
+    Name       = "bastion"                            # Nome do volume associado à instância
+    
   }
 }
+
 ```
 - Este código cria uma instância EC2 do tipo `t3.micro` usando a AMI especificada por `var.ami_id`. A instância será lançada na sub-rede pública especificada por `aws_subnet.subnet-public-a.id`, e seu acesso será controlado pelo grupo de segurança `aws_security_group.bastion_sg.id`. A instância será associada a um endereço IP público, permitindo acesso externo.
 - As tags são utilizadas para identificar e categorizar a instância e o volume associado a ela com informações como nome, ou o que você precisar para seu projeto.
@@ -484,41 +486,104 @@ ___
 ### Load Balancer:
 
 ```hcl
-# Create ALB
-
+# Resource para criar um Application Load Balancer (ALB)
 resource "aws_lb" "alb-tf" {
-  name                             = "alb-project-docker"
-  internal                         = false
-  load_balancer_type               = "application"
-  security_groups                  = [aws_security_group.sg_alb.id]
-  enable_cross_zone_load_balancing = true
-  subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]
-
+  name                             = "alb-project-docker"                     # Nome do ALB
+  internal                         = false                                    # ALB externo
+  load_balancer_type               = "application"                            # Tipo de load balancer: application
+  security_groups                  = [aws_security_group.sg_alb.id]           # Grupo de segurança do ALB
+  enable_cross_zone_load_balancing = true                                     # Habilitar balanceamento de carga entre zonas
+  subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]  # Sub-redes públicas para o ALB
 
   tags = {
-    name = "alb-project-docker"
-
+    name = "alb-project-docker"                                              # Tags para identificar o ALB
   }
 }
 
 # Create ALB Listener 
+# Resource para criar um listener para o ALB
 
 resource "aws_lb_listener" "alb-listener" {
-  load_balancer_arn = aws_lb.alb-tf.arn
-  port              = "80"
-  protocol          = "HTTP"
+  load_balancer_arn = aws_lb.alb-tf.arn           # ARN do ALB
+  port              = "80"                        # Porta do listener
+  protocol          = "HTTP"                      # Protocolo HTTP
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
+    type             = "forward"                   # Ação padrão: encaminhamento
+    target_group_arn = aws_lb_target_group.target_group.arn  # ARN do Target Group para encaminhar o tráfego
   }
-
 }
+
 ```
 - Este código cria um Application Load Balancer (ALB) com o nome "alb-project-docker", configurado para ser externo (`internal = false`), utilizar o tipo "application", habilitar o balanceamento de carga entre zonas (`enable_cross_zone_load_balancing = true`) e associar-se a um grupo de segurança específico (`security_groups`).
 - Além disso, o código define um listener para encaminhar o tráfego HTTP na porta 80 para um Target Group específico (`aws_lb_target_group.target_group.arn`).
 
 _ _ _ 
+
+### Launch Template:
+
+```hcl
+resource "aws_launch_configuration" "wp-launch-config" {
+  name                        = "wp-launch-config"                                  # Nome da configuração de lançamento
+  image_id                    = var.ami_id                                          # ID da AMI (Amazon Machine Image) para a instância
+  instance_type               = "t3.small"                                          # Tipo de instância EC2
+  key_name                    = var.keyname                                         # Nome da chave SSH para acesso à instância
+  security_groups             = [aws_security_group.private_ssh_sg.id]              # Grupo de segurança para a instância
+  associate_public_ip_address = false                                               # Não associar endereço IP público à instância
+  user_data                   = filebase64("${path.module}/user_data.sh")           # Dados do usuário para inicialização da instância
+
+  # Configuração do dispositivo de bloco raiz (root block device)
+  root_block_device {
+    volume_size = 20                                                               # Tamanho do volume raiz em GB
+    volume_type = "gp2"                                                            # Tipo do volume raiz (General Purpose SSD)
+    encrypted   = true                                                             # Criptografado
+  }
+
+  # Configuração das tags para a instância
+  tags = {
+    Name       = "wp-instance"                                                     # Nome da instância
+  }
+}
+```
+- Esta configuração define os parâmetros necessários para a criação de uma Launch Configuration (Configuração de Lançamento) na AWS para uma aplicação WordPress. Inclui detalhes como o nome da configuração, ID da AMI, tipo de instância, chave SSH, grupo de segurança, dados do usuário, tamanho e tipo do volume raiz, entre outros.
+
+<details>
+<summary>User data.</summary>
+
+```bash
+#!/bin/bash
+
+# Instalação e configuração do Docker
+yum update -y                            # Atualiza todos os pacotes do sistema
+yum install docker -y                    # Instala o Docker
+systemctl start docker                   # Inicia o serviço do Docker
+systemctl enable docker                  # Habilita o Docker para iniciar automaticamente
+usermod -a -G docker ec2-user            # Adiciona o usuário 'ec2-user' ao grupo 'docker'
+
+# Instalação do docker-compose
+curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose  # Baixa o docker-compose
+chmod +x /usr/local/bin/docker-compose   # Concede permissões de execução ao docker-compose
+
+# Montagem do EFS
+sudo yum install -y amazon-efs-utils      # Instala as ferramentas para uso do Amazon EFS
+mkdir -p /mnt/nfs/wordpress               # Cria o diretório de montagem para o EFS
+echo "DNS_DO_EFS:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab  # Adiciona entrada no fstab para montagem automática
+mount -a                                  # Monta o EFS usando as configurações do fstab
+
+# Executando o docker-compose do repositório
+yum install git -y                        # Instala o Git para clonar o repositório
+git clone https://github.com/Simeaojs/wordpress.git /home/ec2-user/wordpress   # Clona o repositório do WordPress
+cd /home/ec2-user/wordpress               # Navega até o diretório clonado
+docker-compose up -d                      # Inicia os contêineres do WordPress em segundo plano
+
+``` 
+
+</details>
+
+[docker-compose](https://github.com/Simeaojs/Atividade-AWS-Docker/blob/main/docker-compose.yml)
+
+_ _ _ 
+
 
 
 
