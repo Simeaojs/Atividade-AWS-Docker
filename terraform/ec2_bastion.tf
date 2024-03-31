@@ -7,14 +7,14 @@ resource "aws_instance" "bastion" {
   key_name                    = var.keyname
   associate_public_ip_address = true
   tags = {
-    Name       = "bastion"
+    Name       = "bastion_host"
     Project    = "PB UNICESUMAR"
     CostCenter = "C092000024"
   }
 
   volume_tags = {
-    Name       = "bastion"
+    Name       = "bastion_host"
     Project    = "PB UNICESUMAR"
     CostCenter = "C092000024"
   }
-}
+} 
