@@ -21,8 +21,6 @@ provider "aws" {
   }
 }
 
-# FALTA O BACKEND DO S3 
-
 terraform {
   backend "s3" {
     bucket = "remote-state-project-docker-pb"

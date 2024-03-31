@@ -326,7 +326,7 @@ resource "aws_security_group" "sg_alb" {
   }
 }
 ```
-Este grupo de segurança `(sg_alb)` é utilizado para configurar as regras de acesso ao balanceador de carga (ALB - Application Load Balancer) na AWS. Ele permite o tráfego de entrada na porta 80 (HTTP) de qualquer lugar `(0.0.0.0/0)`, o que significa que qualquer endereço IP pode acessar o ALB através do protocolo TCP na porta 80 para acessar aplicativos web hospedados no ALB. Além disso, ele permite o tráfego de saída para qualquer destino e porta, pois a regra de egresso permite todo o tráfego `(0.0.0.0/0)` com qualquer protocolo `(-1)`. 
+Este grupo de segurança (`sg_alb`) é utilizado para configurar as regras de acesso ao balanceador de carga (ALB - Application Load Balancer) na AWS. Ele permite o tráfego de entrada na porta 80 (HTTP) de qualquer lugar (`0.0.0.0/0`), o que significa que qualquer endereço IP pode acessar o ALB através do protocolo TCP na porta 80 para acessar aplicativos web hospedados no ALB. Além disso, ele permite o tráfego de saída para qualquer destino e porta, pois a regra de egresso permite todo o tráfego (`0.0.0.0/0`) com qualquer protocolo (`-1`). 
 
 ```hcl
 # bastion_sg
@@ -585,7 +585,7 @@ docker-compose up -d                      # Inicia os contêineres do WordPress 
 
 </details>
 
-[docker-compose](https://github.com/Simeaojs/Atividade-AWS-Docker/blob/main/docker-compose.yml)
+ [docker-compose](https://github.com/Simeaojs/Atividade-AWS-Docker/blob/main/docker-compose.yml)
 
 _ _ _ 
 
