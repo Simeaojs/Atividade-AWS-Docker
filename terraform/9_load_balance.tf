@@ -26,12 +26,12 @@ resource "aws_lb_target_group" "target_group" {
   target_type = "instance"
 
   health_check {
-    interval            = 70
-    path                = "/"
+    interval            = 30
+    path                = "/wp-admin/install.php"
     port                = 80
     healthy_threshold   = 2
     unhealthy_threshold = 2
-    timeout             = 60
+    timeout             = 3
     protocol            = "HTTP"
     matcher             = "200,202"
 

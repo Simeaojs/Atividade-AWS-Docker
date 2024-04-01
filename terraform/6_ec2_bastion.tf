@@ -1,3 +1,4 @@
+# Create bastion host
 resource "aws_instance" "bastion" {
 
   ami                         = var.ami_id
