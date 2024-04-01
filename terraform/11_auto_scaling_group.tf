@@ -8,8 +8,13 @@ resource "aws_autoscaling_group" "asg" {
   target_group_arns         = [aws_lb_target_group.target_group.arn]
   health_check_grace_period = 300
   health_check_type         = "EC2"
-  launch_configuration      = aws_launch_configuration.wp-launch-config.name
   vpc_zone_identifier       = [aws_subnet.subnet-private-a.id, aws_subnet.subnet-private-b.id]
+
+
+  launch_template {
+    id      = aws_launch_template.wp-launch-template.id
+    version = "$Latest"
+  }
 
   tag {
     key                 = "Name"

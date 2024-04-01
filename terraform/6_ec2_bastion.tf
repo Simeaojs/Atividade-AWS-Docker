@@ -17,4 +17,4 @@ resource "aws_instance" "bastion" {
     Project    = "PB UNICESUMAR"
     CostCenter = "C092000024"
   }
-} 
+}
