@@ -451,12 +451,34 @@ ___
 
 ###  Configurando o EFS:
 
-1. Acesse o console da AWS e pesquise por "EFS" no campo de busca.
-2. No canto superior direito da página, clique em "Criar sistema de arquivos".
-3. Insira um nome para o sistema de arquivos EFS e selecione a VPC correspondente ao seu projeto.
-4. Clique em "Criar".
+```hcl
+# Criação do Sistema de Arquivos EFS
 
-ℹ️ Observação: Após a criação, vá para a seção de "Rede" e selecione o grupo de segurança adequado para a sua aplicação, garantindo que o acesso ao EFS seja configurado corretamente conforme as necessidades de segurança do seu projeto.
+resource "aws_efs_file_system" "efs" {                        
+  creation_token = "efs-project-docker"                           # Token de criação para garantir unicidade do sistema de arquivos
+  encrypted = true                                                # Define se o sistema de arquivos deve ser criptografado
+
+  tags = {
+    Name = "efs-project-docker"                                   # Tags para identificação do sistema de arquivos
+  }
+}
+
+# Criação dos Pontos de Montagem EFS
+
+resource "aws_efs_mount_target" "efs-mt-a" {
+  file_system_id = aws_efs_file_system.efs.id                     # ID do sistema de arquivos EFS ao qual este ponto de montagem está associado
+  subnet_id = aws_subnet.subnet-private-a.id                      # ID da sub-rede onde o ponto de montagem será criado
+  security_groups = [aws_security_group.private_ssh_sg.id]        # Grupo de segurança que controla o acesso ao ponto de montagem
+}
+
+resource "aws_efs_mount_target" "efs-mt-b" {
+  file_system_id = aws_efs_file_system.efs.id                    # ID do sistema de arquivos EFS ao qual este ponto de montagem está associado
+  subnet_id = aws_subnet.subnet-private-b.id                     # ID da sub-rede onde o ponto de montagem será criado
+  security_groups = [aws_security_group.private_ssh_sg.id]       # Grupo de segurança que controla o acesso ao ponto de montagem
+}
+```
+- Elastic File System (EFS) criado: Este código utiliza o Terraform para criar um sistema de arquivos EFS criptografado na AWS, nomeado "efs-project-docker". Ele também configura dois pontos de montagem em diferentes sub-redes, todos associados ao mesmo grupo de segurança. Essa infraestrutura facilita o compartilhamento de arquivos entre instâncias EC2 em um ambiente distribuído na nuvem da AWS.
+
 ___ 
 
 ### EC2 Bastion Host:
@@ -491,101 +513,149 @@ ___
 ### Load Balancer:
 
 ```hcl
-# Resource para criar um Application Load Balancer (ALB)
+# Create ALB
 resource "aws_lb" "alb-tf" {
-  name                             = "alb-project-docker"                     # Nome do ALB
-  internal                         = false                                    # ALB externo
-  load_balancer_type               = "application"                            # Tipo de load balancer: application
-  security_groups                  = [aws_security_group.sg_alb.id]           # Grupo de segurança do ALB
-  enable_cross_zone_load_balancing = true                                     # Habilitar balanceamento de carga entre zonas
-  subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]  # Sub-redes públicas para o ALB
+  name                             = "alb-project-docker"
+  internal                         = false
+  load_balancer_type               = "application"
+  security_groups                  = [aws_security_group.sg_alb.id]
+  enable_cross_zone_load_balancing = true
+  subnets                          = [aws_subnet.subnet-public-a.id, aws_subnet.subnet-public-b.id]
 
   tags = {
-    name = "alb-project-docker"                                               # Tags para identificar o ALB
+    name = "alb-project-docker"
   }
 }
 
-# Create ALB Listener 
-# Resource para criar um listener para o ALB
+# Create Target group
+resource "aws_lb_target_group" "target_group" {
+  name        = "target-group-project-docker"
+  depends_on  = [aws_vpc.vpc]
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.vpc.id
+  target_type = "instance"
 
+  health_check {
+    interval            = 70
+    path                = "/"
+    port                = 80
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 60
+    protocol            = "HTTP"
+    matcher             = "200,202"
+  }
+}
+
+# Create ALB Listener
 resource "aws_lb_listener" "alb-listener" {
-  load_balancer_arn = aws_lb.alb-tf.arn            # ARN do ALB
-  port              = "80"                         # Porta do listener
-  protocol          = "HTTP"                       # Protocolo HTTP
+  load_balancer_arn = aws_lb.alb-tf.arn
+  port              = "80"
+  protocol          = "HTTP"
 
   default_action {
-    type             = "forward"                   # Ação padrão: encaminhamento
-    target_group_arn = aws_lb_target_group.target_group.arn  # ARN do Target Group para encaminhar o tráfego
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target_group.arn
   }
 }
 
+output "elb_dns" {
+  value = aws_lb.alb-tf.dns_name
+}
+
+
 ```
-- Este código cria um Application Load Balancer (ALB) com o nome "alb-project-docker", configurado para ser externo (`internal = false`), utilizar o tipo "application", habilitar o balanceamento de carga entre zonas (`enable_cross_zone_load_balancing = true`) e associar-se a um grupo de segurança específico (`security_groups`).
-- Além disso, o código define um listener para encaminhar o tráfego HTTP na porta 80 para um Target Group específico (`aws_lb_target_group.target_group.arn`).
+- Este código cria um Application Load Balancer (ALB) na AWS com o nome "alb-project-docker". O ALB é configurado para ser externo (`internal = false`), utilizando o tipo "application", habilitando o balanceamento de carga entre zonas (enable_cross_zone_load_balancing = true) e associando-se a um grupo de segurança específico (`security_groups`).
+
+- Além disso, o código define um listener para encaminhar o tráfego HTTP na porta 80 para um Target Group específico (`aws_lb_target_group.target_group.arn`). O Target Group tem a configuração para verificação de saúde, intervalo de verificação, caminho de verificação, limiares saudáveis e não saudáveis, tempo limite, protocolo de verificação e matcher definidos. Isso garante o funcionamento adequado do ALB ao direcionar o tráfego para as instâncias EC2 associadas ao Target Group.
+
+- Também cria uma saída chamada "elb_dns" que contém o DNS name do Application Load Balancer (ALB). Essa saída pode ser utilizada para obter o endereço do ALB após a execução do Terraform, por exemplo, para acessar a aplicação hospedada no ALB.
 
 _ _ _ 
 
 ### Launch Template:
 
 ```hcl
-resource "aws_launch_configuration" "wp-launch-config" {
-  name                        = "wp-launch-config"                                  # Nome da configuração de lançamento
-  image_id                    = var.ami_id                                          # ID da AMI (Amazon Machine Image) para a instância
-  instance_type               = "t3.small"                                          # Tipo de instância EC2
-  key_name                    = var.keyname                                         # Nome da chave SSH para acesso à instância
-  security_groups             = [aws_security_group.private_ssh_sg.id]              # Grupo de segurança para a instância
-  associate_public_ip_address = false                                               # Não associar endereço IP público à instância
-  user_data                   = filebase64("${path.module}/user_data.sh")           # Dados do usuário para inicialização da instância
+# Criação do Launch Template
+resource "aws_launch_template" "wp-launch-template" {
+  name          = "wp-launch-template"                                    # Nome do Launch Template
+  image_id      = var.ami_id                                              # ID da AMI a ser usada para as instâncias
+  instance_type = "t3.small"                                              # Tipo de instância (tamanho)
+  key_name      = var.keyname                                             # Nome da chave SSH para acesso às instâncias
 
-  # Configuração do dispositivo de bloco raiz (root block device)
-  root_block_device {
-    volume_size = 20                                                                # Tamanho do volume raiz em GB
-    volume_type = "gp2"                                                             # Tipo do volume raiz (General Purpose SSD)
-    encrypted   = true                                                              # Criptografado
+  # Configuração da interface de rede das instâncias
+  network_interfaces {
+    associate_public_ip_address = false                                   # Desabilita IP público para instâncias
+    security_groups             = [aws_security_group.private_ssh_sg.id]  # Grupo de segurança para instâncias
   }
 
-  # Configuração das tags para a instância
-  tags = {
-    Name       = "wp-instance"                                                      # Nome da instância
+  # Tags para as instâncias e volumes associados
+  tag_specifications {
+    resource_type = "instance"                                            # Tipo de recurso (instância)
+    tags = {
+      Name       = "wp-launch-template"                                   # Tag de nome para instâncias
+      CostCenter = " "                                                    # Tag de centro de custo
+      project    = " "                                                    # Tag de projeto
+    }
   }
-}
-```
-- Esta configuração define os parâmetros necessários para a criação de uma Launch Configuration (Configuração de Lançamento) na AWS para uma aplicação WordPress. Inclui detalhes como o nome da configuração, ID da AMI, tipo de instância, chave SSH, grupo de segurança, dados do usuário, tamanho e tipo do volume raiz, entre outros.
 
-<details>
-<summary>User data.</summary>
+  tag_specifications {
+    resource_type = "volume"                                              # Tipo de recurso (volume)
+    tags = {
+      Name       = "wp-launch-template"                                   # Tag de nome para volumes
+      CostCenter = " "                                                    # Tag de centro de custo
+      project    = " "                                                    # Tag de projeto
+    }
+  }
 
-```bash
+  # Script de inicialização das instâncias (UserData)
+ user_data = base64encode(<<EOF
 #!/bin/bash
 
-# Instalação e configuração do Docker
-yum update -y                            # Atualiza todos os pacotes do sistema
-yum install docker -y                    # Instala o Docker
-systemctl start docker                   # Inicia o serviço do Docker
-systemctl enable docker                  # Habilita o Docker para iniciar automaticamente
-usermod -a -G docker ec2-user            # Adiciona o usuário 'ec2-user' ao grupo 'docker'
+yum update -y                                                             # Atualiza pacotes do sistema
+yum install docker -y                                                     # Instala o Docker
+systemctl start docker                                                    # Inicia o serviço do Docker
+systemctl enable docker                                                   # Habilita o Docker para iniciar na inicialização
+usermod -a -G docker ec2-user                                             # Adiciona o usuário ec2-user ao grupo docker
 
-# Instalação do docker-compose
-curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose  # Baixa o docker-compose
-chmod +x /usr/local/bin/docker-compose   # Concede permissões de execução ao docker-compose
+sudo yum install -y amazon-efs-utils                                      # Instala utilitários EFS da AWS
+mkdir -p /mnt/nfs/wordpress                                               # Cria diretório para montagem do EFS
+echo "\${aws_efs_file_system.efs.dns_name}:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab   # Configura montagem automática do EFS
+mount -a                                                                  # Monta o sistema de arquivos
 
-# Montagem do EFS
-sudo yum install -y amazon-efs-utils      # Instala as ferramentas para uso do Amazon EFS
-mkdir -p /mnt/nfs/wordpress               # Cria o diretório de montagem para o EFS
-echo "DNS_DO_EFS:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab  # Adiciona entrada no fstab para montagem automática
-mount -a                                  # Monta o EFS usando as configurações do fstab
+curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose  # Baixa e instala Docker Compose
+chmod +x /usr/local/bin/docker-compose                                    # Torna o Docker Compose executável
 
-# Executando o docker-compose do repositório
-yum install git -y                        # Instala o Git para clonar o repositório
-git clone https://github.com/Simeaojs/wordpress.git /home/ec2-user/wordpress   # Clona o repositório do WordPress
-cd /home/ec2-user/wordpress               # Navega até o diretório clonado
-docker-compose up -d                      # Inicia os contêineres do WordPress em segundo plano
+cat <<EOL > /home/ec2-user/docker-compose.yml # Cria arquivo de configuração do Docker Compose
+version: '3.8'
+services:
+  wp-web:
+    image: wordpress:latest                                               # Imagem do WordPress
+    restart: always                                                       # Reiniciar sempre
+    ports:
+      - 80:80                                                             # Mapeamento de portas (host:container)
+    environment: 
+      TZ: America/Sao_Paulo                                               # Configuração de fuso horário
+      WORDPRESS_DB_HOST: ${aws_db_instance.rds_instance.endpoint}         # Endpoint do banco de dados RDS
+      WORDPRESS_DB_USER: admin                                            # Usuário do banco de dados
+      WORDPRESS_DB_PASSWORD: *********                                    # Senha do banco de dados
+      WORDPRESS_DB_NAME: wordpress                                        # Nome do banco de dados WordPress
+    volumes:
+      - /mnt/nfs/wordpress:/var/www/html                                  # Mapeamento de volume para armazenamento persistente
+EOL
 
-``` 
+docker-compose -f /home/ec2-user/docker-compose.yml up -d                 # Inicia o serviço do Docker Compose
+EOF
+)
 
-</details>
+}
 
- [docker-compose](https://github.com/Simeaojs/Atividade-AWS-Docker/blob/main/docker-compose.yml)
+
+```
+- O código cria um Launch Template na AWS com o nome "wp-launch-template". Esse Launch Template é uma especificação para lançar instâncias EC2 com configurações predefinidas, incluindo a imagem da AMI a ser usada, o tipo de instância, a chave SSH para acesso, configurações de rede, tags e um script de inicialização (UserData).
+
+- Em resumo, o Launch Template criado por este código é uma especificação para lançar instâncias EC2 com um ambiente configurado para executar um serviço WordPress usando Docker Compose, montar automaticamente um sistema de arquivos EFS e garantir a integração com um banco de dados RDS.
 
 _ _ _ 
 
@@ -613,27 +683,6 @@ resource "aws_autoscaling_group" "asg" {
   }
 }
 
-# Criação do Target Group
-resource "aws_lb_target_group" "target_group" {
-  name        = "target-group-project-docker"                                   # Nome do Target Group
-  depends_on  = [aws_vpc.vpc]                                                   # Dependência da VPC
-  port        = 80                                                              # Porta do Target Group
-  protocol    = "HTTP"                                                          # Protocolo do Target Group
-  vpc_id      = aws_vpc.vpc.id                                                  # ID da VPC
-  target_type = "instance"                                                      # Tipo de destino (instancias EC2)
-
-  health_check {
-    interval            = 70                                                    # Intervalo da verificação de saúde
-    path                = "/"                                                   # Caminho da verificação de saúde
-    port                = 80                                                    # Porta da verificação de saúde
-    healthy_threshold   = 2                                                     # Limiar de saúde positiva
-    unhealthy_threshold = 2                                                     # Limiar de saúde negativa
-    timeout             = 60                                                    # Tempo limite da verificação de saúde
-    protocol            = "HTTP"                                                # Protocolo da verificação de saúde
-    matcher             = "200,202"                                             # Matcher para status HTTP
-  }
-}
-
 # Política de Dimensionamento de Rastreamento de Alvo
 resource "aws_autoscaling_policy" "asg_cpu_policy" {
   name                   = "asg_cpu_policy"                                     # Nome da política de dimensionamento
@@ -649,19 +698,7 @@ resource "aws_autoscaling_policy" "asg_cpu_policy" {
   }
 }
 ```
-- Este código configura um Grupo de Auto Scaling (ASG) para gerenciar instâncias EC2, um Target Group para o Application Load Balancer (ALB) e uma política de dimensionamento automático com base na utilização média da CPU. Ele garante que as instâncias EC2 sejam gerenciadas de forma automática, escalando de acordo com a demanda e mantendo a saúde do sistema.
-
-_ _ _ 
-
-### Outputs:
-
-```hcl
-# Definição da saída para o DNS do ALB
-output "elb_dns" {
-  value = aws_lb.alb-tf.dns_name  # Valor da saída é o DNS name do ALB
-}
-```
-- Este código cria uma saída chamada "elb_dns" que contém o DNS name do Application Load Balancer (ALB). Essa saída pode ser utilizada para obter o endereço do ALB após a execução do Terraform, por exemplo, para acessar a aplicação hospedada no ALB.
+- Este código configura um Grupo de Auto Scaling (ASG) para gerenciar instâncias EC2, e uma política de dimensionamento automático com base na utilização média da CPU. Ele garante que as instâncias EC2 sejam gerenciadas de forma automática, escalando de acordo com a demanda e mantendo a saúde do sistema.
 
 _ _ _ 
 
