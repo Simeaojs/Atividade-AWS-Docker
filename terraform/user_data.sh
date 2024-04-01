@@ -15,7 +15,7 @@ chmod +x /usr/local/bin/docker-compose
 # Montagem do EFS
 sudo yum install -y amazon-efs-utils
 mkdir -p /mnt/nfs/wordpress
-echo "fs-0484f8de42c4fe635.efs.us-east-1.amazonaws.com:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab
+echo "fs-0195a8480a159c086.efs.us-east-1.amazonaws.com:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab
 mount -a
 
 # Executando o docker-compose do repositório
