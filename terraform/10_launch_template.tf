@@ -40,7 +40,7 @@ usermod -a -G docker ec2-user
 
 sudo yum install -y amazon-efs-utils
 mkdir -p /mnt/nfs/wordpress
-echo "\${aws_efs_file_system.efs.dns_name}:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab
+echo "${aws_efs_file_system.efs.dns_name}:/ /mnt/nfs/wordpress nfs defaults,_netdev 0 0" >> /etc/fstab
 mount -a
 
 curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose

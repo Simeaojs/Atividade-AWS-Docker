@@ -206,7 +206,7 @@ resource "aws_route_table" "private" {
 - Define tabelas de rota pública e privada para roteamento de tráfego.
 _ _ _ 
 
-### Para criar a associação da tabela de rotas e o grupo de segurança:
+### Para criar a associação da tabela de rotas:
 
 ```hcl
 # Associação de Tabela de Rota Pública 1
@@ -538,7 +538,7 @@ resource "aws_lb_target_group" "target_group" {
 
   health_check {
     interval            = 70
-    path                = "/"
+    path                = "/wp-admin/install.php"
     port                = 80
     healthy_threshold   = 2
     unhealthy_threshold = 2
