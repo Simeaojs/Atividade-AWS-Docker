@@ -1,5 +1,5 @@
 resource "aws_security_group" "bastion_sg" {
-  name        = "bastion_sg"
+  name        = "bastion_sg ${var.environment}"
   description = "Security group for bastion host"
   vpc_id      = aws_vpc.vpc.id
 
@@ -23,7 +23,7 @@ resource "aws_security_group" "bastion_sg" {
 }
 
 resource "aws_security_group" "private_ssh_sg" {
-  name        = "private_ssh_sg"
+  name        = "private_ssh_sg ${var.environment}"
   description = "Security group for bastion host"
   vpc_id      = aws_vpc.vpc.id
 
@@ -67,7 +67,7 @@ resource "aws_security_group" "private_ssh_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    Name = "private_ssh_sg"
+    Name = "private_ssh_sg ${var.environment}"
   }
 
 }

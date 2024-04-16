@@ -15,3 +15,9 @@ variable "ami_id" {
 variable "keyname" {
   default = "devops"
 }
+
+variable "environment" {
+  description = "Ambiente a que pertencem os recursos criados na AWS"
+  type        = string
+  default     = "dev"
+}

@@ -5,7 +5,7 @@ resource "aws_launch_template" "wp-launch-template" {
   image_id      = var.ami_id
   instance_type = "t3.small"
   key_name      = var.keyname
-  
+
 
   network_interfaces {
     associate_public_ip_address = false
@@ -15,7 +15,7 @@ resource "aws_launch_template" "wp-launch-template" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name       = "wp-launch-template"
+      Name       = "wp-launch-template ${var.environment}"
       CostCenter = "C092000024"
       project    = "PB UNICESUMAR"
     }
@@ -24,12 +24,12 @@ resource "aws_launch_template" "wp-launch-template" {
   tag_specifications {
     resource_type = "volume"
     tags = {
-      Name       = "wp-launch-template"
+      Name       = "wp-launch-template ${var.environment}"
       CostCenter = "C092000024"
       project    = "PB UNICESUMAR"
     }
   }
-user_data = base64encode(<<EOF
+  user_data = base64encode(<<EOF
 #!/bin/bash
 
 yum update -y
@@ -66,9 +66,9 @@ EOL
 
 docker-compose -f /home/ec2-user/docker-compose.yml up -d
 EOF
-)
+  )
 
- 
+
 }
 
 

@@ -4,7 +4,7 @@ resource "aws_vpc" "vpc" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = "vpc-project-docker"
+    Name = "vpc-project-docker ${var.environment}"
   }
 }
 
@@ -15,7 +15,7 @@ resource "aws_subnet" "subnet-public-a" {
   availability_zone = "us-east-1a"
 
   tags = {
-    Name = "subnet-public-a"
+    Name = "subnet-public-a ${var.environment}"
   }
 }
 
@@ -25,7 +25,7 @@ resource "aws_subnet" "subnet-public-b" {
   availability_zone = "us-east-1b"
 
   tags = {
-    Name = "subnet-public-b"
+    Name = "subnet-public-b ${var.environment}"
   }
 }
 
@@ -36,7 +36,7 @@ resource "aws_subnet" "subnet-private-a" {
   availability_zone = "us-east-1a"
 
   tags = {
-    Name = "subnet-private-a"
+    Name = "subnet-private-a ${var.environment}"
   }
 }
 
@@ -46,6 +46,6 @@ resource "aws_subnet" "subnet-private-b" {
   availability_zone = "us-east-1b"
 
   tags = {
-    Name = "subnet-private-b"
+    Name = "subnet-private-b ${var.environment}"
   }
 }

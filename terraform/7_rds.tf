@@ -1,7 +1,7 @@
 #rds subnet
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
-  name       = "rds-subnet-group"
+  name       = "rds-subnet-group ${var.environment}"
   subnet_ids = [aws_subnet.subnet-private-a.id, aws_subnet.subnet-private-b.id]
 
 }
@@ -22,14 +22,14 @@ resource "aws_db_instance" "rds_instance" {
   vpc_security_group_ids    = [aws_security_group.rds_sg.id]
 
   tags = {
-    Name = "rds-project-docker"
+    Name = "rds-project-docker ${var.environment}"
   }
 
 }
 # RDS security group
 
 resource "aws_security_group" "rds_sg" {
-  name        = "rds-sg-project-docker"
+  name        = "rds-sg-project-docker ${var.environment}"
   description = "Security group for RDS"
   vpc_id      = aws_vpc.vpc.id
 
@@ -41,6 +41,6 @@ resource "aws_security_group" "rds_sg" {
   }
 
   tags = {
-    Name = "rds-sg-project-docker"
+    Name = "rds-sg-project-docker ${var.environment}"
   }
 }

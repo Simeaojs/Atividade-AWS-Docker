@@ -10,7 +10,7 @@ resource "aws_lb" "alb-tf" {
 
 
   tags = {
-    name = "alb-project-docker"
+    name = "alb-project-docker ${var.environment}"
 
   }
 }
@@ -35,6 +35,10 @@ resource "aws_lb_target_group" "target_group" {
     protocol            = "HTTP"
     matcher             = "200,202"
 
+  }
+
+  tags = {
+    name = "target-group-project-docker ${var.environment}"
   }
 
 }

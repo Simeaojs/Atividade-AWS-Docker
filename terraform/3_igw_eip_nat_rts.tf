@@ -1,9 +1,10 @@
 #internet gateway
 resource "aws_internet_gateway" "igw" {
+  count  = 1
   vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "igw-project-docker"
+    Name = "igw-project-docker ${count.index}-${var.environment}"
   }
 }
 
@@ -12,7 +13,7 @@ resource "aws_route_table" "rt-public_a" {
   vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "Route Table Public_A"
+    Name = "Route Table Public_A ${var.environment}"
   }
 }
 
@@ -20,7 +21,7 @@ resource "aws_route_table" "rt-public_b" {
   vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "Route Table Public_B"
+    Name = "Route Table Public_B ${var.environment}"
   }
 }
 
@@ -40,21 +41,21 @@ resource "aws_route" "rota_default_public_a" {
   route_table_id         = aws_route_table.rt-public_a.id
   destination_cidr_block = "0.0.0.0/0"
 
-  gateway_id = aws_internet_gateway.igw.id
+  gateway_id = aws_internet_gateway.igw[0].id
 }
 # public routing for subnet B outbound to the internet 
 resource "aws_route" "rota_default_public_b" {
   route_table_id         = aws_route_table.rt-public_b.id
   destination_cidr_block = "0.0.0.0/0"
 
-  gateway_id = aws_internet_gateway.igw.id
+  gateway_id = aws_internet_gateway.igw[0].id
 }
 
 #elastic ip
 resource "aws_eip" "nat_gateway_eip" {
   count = 1
   tags = {
-    Name = "elastic_ip_${count.index}"
+    Name = "elastic_ip_${count.index} ${var.environment}"
   }
 }
 #nat gateway
@@ -63,7 +64,7 @@ resource "aws_nat_gateway" "nat_gateway" {
   allocation_id = aws_eip.nat_gateway_eip[count.index].id
   subnet_id     = aws_subnet.subnet-public-a.id
   tags = {
-    Name = "nat_gateway_${count.index}"
+    Name = "nat_gateway_${count.index} ${var.environment}"
   }
 }
 
@@ -72,7 +73,7 @@ resource "aws_route_table" "rt-private_a" {
   vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "Route Table Private_A"
+    Name = "Route Table Private_A ${var.environment}"
   }
 }
 
@@ -80,7 +81,7 @@ resource "aws_route_table" "rt-private_b" {
   vpc_id = aws_vpc.vpc.id
 
   tags = {
-    Name = "Route Table Private_B"
+    Name = "Route Table Private_B ${var.environment}"
   }
 }
 

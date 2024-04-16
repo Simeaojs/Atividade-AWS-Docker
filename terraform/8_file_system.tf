@@ -5,7 +5,7 @@ resource "aws_efs_file_system" "efs" {
   encrypted      = true
 
   tags = {
-    Name = "efs-project-docker"
+    Name = "efs-project-docker ${var.environment}"
   }
 }
 

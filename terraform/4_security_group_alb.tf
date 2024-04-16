@@ -1,7 +1,7 @@
 # Create security group for load balancer
 
 resource "aws_security_group" "sg_alb" {
-  name        = "sg_alb"
+  name        = "sg_alb ${var.environment}"
   description = "Security group for load balancer"
   vpc_id      = aws_vpc.vpc.id
 

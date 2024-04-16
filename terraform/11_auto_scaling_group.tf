@@ -18,7 +18,7 @@ resource "aws_autoscaling_group" "asg" {
 
   tag {
     key                 = "Name"
-    value               = "project-docker"
+    value               = "project-docker ${var.environment}"
     propagate_at_launch = true
   }
 
